@@ -9,14 +9,12 @@ import { Filters } from "./utils/types";
 import { getUserLocation } from "./utils/location";
 import { CAMPUSES } from "./data/campuses";
 import { getDistanceKm } from "./utils/distance";
+import {
+  normalizeListingRecord,
+  normalizeRenterPreferences,
+} from "../shared/listingSchema";
 
 const TAB_OVERLAP = 90;
-
-const parseLease = (val: string | null) => {
-  if (!val) return null;
-  const num = parseInt(val);
-  return isNaN(num) ? null : num;
-};
 
 export default function SearchScreen({ navigation }: any) {
   const [listings, setListings] = useState<any[]>([]);
@@ -49,7 +47,7 @@ export default function SearchScreen({ navigation }: any) {
 
       const snap = await getDocs(collection(db, "users"));
       const userDoc = snap.docs.find(d => d.id === user.uid);
-      setPrefs(userDoc?.data()?.renterPreferences || null);
+      setPrefs(normalizeRenterPreferences(userDoc?.data()?.renterPreferences || null));
     };
     loadPrefs();
   }, []);
@@ -64,7 +62,7 @@ export default function SearchScreen({ navigation }: any) {
   }, []);
 
   const results = useMemo(() => {
-    let data = [...listings];
+    let data = listings.map((listing) => normalizeListingRecord(listing));
     const q = query.trim().toLowerCase();
 
     const campus = CAMPUSES.find(c => c.id === prefs?.campusId);
@@ -92,11 +90,7 @@ export default function SearchScreen({ navigation }: any) {
     }
 
     if (filters.leaseLength) {
-      const lease = parseLease(filters.leaseLength);
-      data = data.filter((l) => {
-        if (!l?.leaseLengthMonths) return true;
-        return l.leaseLengthMonths === lease;
-      });
+      data = data.filter((l) => l.leaseLength === filters.leaseLength);
     }
 
     // DISTANCE 
@@ -136,14 +130,14 @@ export default function SearchScreen({ navigation }: any) {
           if ((b.price?.amount ?? 0) <= prefs.budget) bScore++;
         }
 
-        if (prefs?.propertyType) {
-          if (a.propertyType === prefs.propertyType) aScore++;
-          if (b.propertyType === prefs.propertyType) bScore++;
+        if (prefs?.propertyTypes?.length) {
+          if (prefs.propertyTypes.includes(a.propertyType)) aScore++;
+          if (prefs.propertyTypes.includes(b.propertyType)) bScore++;
         }
 
-        if (prefs?.housingType) {
-          if (a.housingType === prefs.housingType) aScore++;
-          if (b.housingType === prefs.housingType) bScore++;
+        if (prefs?.housingTypes?.length) {
+          if (prefs.housingTypes.includes(a.housingType)) aScore++;
+          if (prefs.housingTypes.includes(b.housingType)) bScore++;
         }
 
         if ((a.distance ?? 999) < 5) aScore++;

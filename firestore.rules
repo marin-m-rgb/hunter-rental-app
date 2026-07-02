@@ -101,9 +101,24 @@ service cloud.firestore {
         );
 
       allow update: if request.auth != null
-        && resource.data.landlordID == request.auth.uid
-        && request.resource.data.renterID == resource.data.renterID
-        && request.resource.data.landlordID == resource.data.landlordID;
+        && (
+          (
+            resource.data.landlordID == request.auth.uid
+            && request.resource.data.renterID == resource.data.renterID
+            && request.resource.data.landlordID == resource.data.landlordID
+          ) ||
+          (
+            resource.data.renterID == request.auth.uid
+            && resource.data.status == "pending"
+            && request.resource.data.renterID == resource.data.renterID
+            && request.resource.data.landlordID == resource.data.landlordID
+            && request.resource.data.status == "cancelled"
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              "status",
+              "updatedAt"
+            ])
+          )
+        );
 
       allow delete: if false;
     }

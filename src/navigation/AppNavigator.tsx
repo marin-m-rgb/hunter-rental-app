@@ -21,7 +21,6 @@ import BookingDetailsScreen from "../features/renter/BookingDetailsScreen";
 
 // LANDLORD
 import LandlordTabs from "./LandlordTabs";
-import LandlordSetupScreen from "../features/landlord/LandlordSetupScreen";
 import LandlordProfileScreen from "../features/landlord/LandlordProfileScreen";
 import AddListingScreen from "../features/landlord/AddListingScreen";
 import EditListingScreen from "../features/landlord/EditListingScreen";
@@ -52,7 +51,6 @@ export default function AppNavigator() {
       <Stack.Screen name="BookingDetailsScreen" component={BookingDetailsScreen} />
 
       {/* LANDLORD & BOOKINGS */}
-      <Stack.Screen name="LandlordSetupScreen" component={LandlordSetupScreen} />
       <Stack.Screen name="LandlordTabs" component={LandlordTabs} />
       <Stack.Screen name="LandlordProfileScreen" component={LandlordProfileScreen} />
       <Stack.Screen name="AddListingScreen" component={AddListingScreen} />

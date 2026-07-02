@@ -16,6 +16,7 @@ import { auth, db } from "../../config/firebase";
 import { doc, getDoc, writeBatch } from "firebase/firestore";
 import { deleteUser, signOut } from "firebase/auth";
 import { colors, buttons } from "../../styles/globalStyles";
+import { normalizeRenterPreferences } from "../shared/listingSchema";
 import { CAMPUSES } from "./data/campuses";
 
 const InfoRow = ({ label, value }: { label: string; value: any }) => (
@@ -45,7 +46,7 @@ export default function RenterProfileScreen({ navigation }: any) {
 
       if (snap.exists()) {
         const data = snap.data();
-        setPrefs(data?.renterPreferences || null);
+        setPrefs(normalizeRenterPreferences(data?.renterPreferences || null));
         setName(data?.name || "User");
         setPhoneNumber(data?.phoneNumber || "");
         setAvatarUrl(data?.avatarUrl || null);
@@ -137,13 +138,31 @@ export default function RenterProfileScreen({ navigation }: any) {
   const deleteAccount = async () => {
     if (!user) return;
 
-    const batch = writeBatch(db);
+    try {
+      await deleteUser(user);
+    } catch (e: any) {
+      Alert.alert(
+        "Delete account failed",
+        e?.code === "auth/requires-recent-login"
+          ? "Please log in again before deleting your account."
+          : e?.message || "Could not delete account."
+      );
+      return;
+    }
 
-    batch.delete(doc(db, "users", user.uid));
-    batch.delete(doc(db, "sharedUsers", user.uid));
+    try {
+      const batch = writeBatch(db);
 
-    await batch.commit();
-    await deleteUser(user);
+      batch.delete(doc(db, "users", user.uid));
+      batch.delete(doc(db, "sharedUsers", user.uid));
+
+      await batch.commit();
+    } catch {
+      Alert.alert(
+        "Account deleted",
+        "Your sign-in was removed, but some profile data could not be deleted automatically."
+      );
+    }
 
     navigation.reset({ index: 0, routes: [{ name: "Login" }] });
   };
@@ -204,9 +223,18 @@ export default function RenterProfileScreen({ navigation }: any) {
             <>
               <InfoRow label="Budget" value={`$${prefs.budget ?? "Not set"}`} />
               <InfoRow label="Campus" value={campusLabel} />
-              <InfoRow label="Property Type" value={prefs.propertyType ?? "Any"} />
-              <InfoRow label="Lease Length" value={prefs.leaseLength ?? "Any"} />
-              <InfoRow label="Housing Type" value={prefs.housingType ?? "Any"} />
+              <InfoRow
+                label="Property Type"
+                value={prefs.propertyTypes?.length ? prefs.propertyTypes.join(", ") : "Any"}
+              />
+              <InfoRow
+                label="Lease Length"
+                value={prefs.leaseLengths?.length ? prefs.leaseLengths.join(", ") : "Any"}
+              />
+              <InfoRow
+                label="Housing Type"
+                value={prefs.housingTypes?.length ? prefs.housingTypes.join(", ") : "Any"}
+              />
               <InfoRow label="Max Distance" value={`${prefs.maxDistanceKm ?? 0} km`} />
               <InfoRow
                 label="Lifestyle"

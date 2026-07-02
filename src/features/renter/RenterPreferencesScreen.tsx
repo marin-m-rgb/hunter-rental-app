@@ -13,12 +13,15 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "../../config/firebase";
 import { colors, buttons } from "../../styles/globalStyles";
+import {
+    HOUSING_TYPES,
+    PREFERENCE_LEASE_LENGTHS,
+    PROPERTY_TYPES,
+    normalizeRenterPreferences,
+} from "../shared/listingSchema";
 
 import { CAMPUSES } from "./data/campuses";
 
-const LEASE_OPTIONS = ["4", "8", "12"];
-const HOUSING_OPTIONS = ["Shared", "Private"];
-const PROPERTY_TYPES = ["Condo", "House", "Studio"];
 const LIFESTYLES = [
     "Quiet",
     "Social",
@@ -37,9 +40,9 @@ export default function RenterPreferencesScreen({ navigation }: any) {
     const [budget, setBudget] = useState(1200);
     const [campusId, setCampusId] = useState<string | null>(null);
 
-    const [lease, setLease] = useState("8");
-    const [housing, setHousing] = useState("Shared");
-    const [propertyType, setPropertyType] = useState<string | null>(null);
+    const [leaseLengths, setLeaseLengths] = useState<string[]>([]);
+    const [housingTypes, setHousingTypes] = useState<string[]>([]);
+    const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
 
     const [lifestyle, setLifestyle] = useState<string[]>([]);
     const [maxDistanceKm, setMaxDistanceKm] = useState(10);
@@ -53,14 +56,16 @@ export default function RenterPreferencesScreen({ navigation }: any) {
             if (!user) return;
 
             const snap = await getDoc(doc(db, "users", user.uid));
-            const prefs = snap.exists() ? snap.data()?.renterPreferences : null;
+            const prefs = normalizeRenterPreferences(
+                snap.exists() ? snap.data()?.renterPreferences : null
+            );
 
             if (prefs) {
                 setBudget(prefs.budget ?? 1200);
                 setCampusId(prefs.campusId ?? null);
-                setLease(prefs.leaseLength ? prefs.leaseLength.replace(" Month", "") : "8");
-                setHousing(prefs.housingType ?? "Shared");
-                setPropertyType(prefs.propertyType ?? null);
+                setLeaseLengths(prefs.leaseLengths ?? []);
+                setHousingTypes(prefs.housingTypes ?? []);
+                setPropertyTypes(prefs.propertyTypes ?? []);
                 setLifestyle(prefs.lifestylePreferences ?? []);
                 setMaxDistanceKm(prefs.maxDistanceKm ?? 10);
             }
@@ -79,6 +84,26 @@ export default function RenterPreferencesScreen({ navigation }: any) {
         );
     };
 
+    const toggleSelection = (
+        value: string,
+        selected: string[],
+        setter: React.Dispatch<React.SetStateAction<string[]>>
+    ) => {
+        setter(
+            selected.includes(value)
+                ? selected.filter((item) => item !== value)
+                : [...selected, value]
+        );
+    };
+
+    const toStoredSelection = (selected: string[], allOptions: readonly string[]) => {
+        if (selected.length === 0 || selected.length === allOptions.length) {
+            return null;
+        }
+
+        return selected;
+    };
+
     const handleSave = async () => {
         if (!user) return;
 
@@ -88,9 +113,9 @@ export default function RenterPreferencesScreen({ navigation }: any) {
             campusName: selectedCampus?.name ?? null,
             campusLat: selectedCampus?.lat ?? null,
             campusLng: selectedCampus?.lng ?? null,
-            leaseLength: lease ? `${lease} Month` : null,
-            housingType: housing,
-            propertyType,
+            leaseLengths: toStoredSelection(leaseLengths, PREFERENCE_LEASE_LENGTHS),
+            housingTypes: toStoredSelection(housingTypes, HOUSING_TYPES),
+            propertyTypes: toStoredSelection(propertyTypes, PROPERTY_TYPES),
             lifestylePreferences: lifestyle,
             maxDistanceKm,
             updatedAt: new Date().toISOString(),
@@ -169,16 +194,18 @@ export default function RenterPreferencesScreen({ navigation }: any) {
                 {/* LEASE */}
                 <Text style={styles.label}>Lease</Text>
                 <View style={styles.row}>
-                    {LEASE_OPTIONS.map((o) => (
+                    {PREFERENCE_LEASE_LENGTHS.map((o) => (
                         <TouchableOpacity
                             key={o}
-                            onPress={() => setLease(o)}
+                            onPress={() =>
+                                toggleSelection(o, leaseLengths, setLeaseLengths)
+                            }
                             style={[
                                 styles.toggle,
-                                lease === o && styles.toggleActive,
+                                leaseLengths.includes(o) && styles.toggleActive,
                             ]}
                         >
-                            <Text>{o} mo</Text>
+                            <Text>{o}</Text>
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -186,13 +213,15 @@ export default function RenterPreferencesScreen({ navigation }: any) {
                 {/* HOUSING */}
                 <Text style={styles.label}>Housing</Text>
                 <View style={styles.row}>
-                    {HOUSING_OPTIONS.map((o) => (
+                    {HOUSING_TYPES.map((o) => (
                         <TouchableOpacity
                             key={o}
-                            onPress={() => setHousing(o)}
+                            onPress={() =>
+                                toggleSelection(o, housingTypes, setHousingTypes)
+                            }
                             style={[
                                 styles.toggle,
-                                housing === o && styles.toggleActive,
+                                housingTypes.includes(o) && styles.toggleActive,
                             ]}
                         >
                             <Text>{o}</Text>
@@ -207,11 +236,11 @@ export default function RenterPreferencesScreen({ navigation }: any) {
                         <TouchableOpacity
                             key={type}
                             onPress={() =>
-                                setPropertyType(propertyType === type ? null : type)
+                                toggleSelection(type, propertyTypes, setPropertyTypes)
                             }
                             style={[
                                 styles.toggle,
-                                propertyType === type && styles.toggleActive,
+                                propertyTypes.includes(type) && styles.toggleActive,
                             ]}
                         >
                             <Text>{type}</Text>

@@ -19,6 +19,10 @@ import { colors, buttons } from "../../styles/globalStyles";
 
 const REMEMBER_LOGIN_KEY = "hunterRememberLogin";
 
+type RememberedLogin = {
+    email: string;
+};
+
 export default function LoginScreen({ navigation }: any) {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -33,13 +37,17 @@ export default function LoginScreen({ navigation }: any) {
 
                 if (!savedLogin) return;
 
-                const parsedLogin = JSON.parse(savedLogin);
+                const parsedLogin = JSON.parse(savedLogin) as Partial<RememberedLogin> & {
+                    password?: string;
+                };
 
-                if (parsedLogin?.email && parsedLogin?.password) {
+                if (parsedLogin?.email && !parsedLogin?.password) {
                     setEmail(parsedLogin.email);
-                    setPassword(parsedLogin.password);
                     setRememberMe(true);
+                    return;
                 }
+
+                await AsyncStorage.removeItem(REMEMBER_LOGIN_KEY);
             } catch {
                 await AsyncStorage.removeItem(REMEMBER_LOGIN_KEY);
             }
@@ -84,7 +92,6 @@ export default function LoginScreen({ navigation }: any) {
                     REMEMBER_LOGIN_KEY,
                     JSON.stringify({
                         email: cleanEmail,
-                        password,
                     })
                 );
             } else {
@@ -105,7 +112,7 @@ export default function LoginScreen({ navigation }: any) {
             } else if (role === "landlord") {
                 navigation.reset({
                     index: 0,
-                    routes: [{ name: "LandlordSetupScreen" }],
+                    routes: [{ name: "LandlordTabs" }],
                 });
             } else {
                 setError("User role not found.");

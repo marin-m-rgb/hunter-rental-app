@@ -23,14 +23,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../styles/globalStyles";
 import { CAMPUSES } from "./data/campuses";
 import { getDistanceKm } from "./utils/distance";
+import {
+  normalizeListingRecord,
+  normalizeRenterPreferences,
+} from "../shared/listingSchema";
 
 const TAB_OVERLAP = 90;
-
-const parseLeaseMonths = (lease: string | null) => {
-  if (!lease) return null;
-  const num = parseInt(lease);
-  return isNaN(num) ? null : num;
-};
 
 export default function RenterDashboardScreen({ navigation }: any) {
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -58,7 +56,7 @@ export default function RenterDashboardScreen({ navigation }: any) {
 
       setUserProfile(userData);
 
-      const prefs = userData?.renterPreferences;
+      const prefs = normalizeRenterPreferences(userData?.renterPreferences);
 
       setSavedCount((userData?.favoritesID ?? []).length);
 
@@ -72,10 +70,12 @@ export default function RenterDashboardScreen({ navigation }: any) {
 
       const listingsSnap = await getDocs(collection(db, "listings"));
 
-      let listings = listingsSnap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      }));
+      let listings = listingsSnap.docs.map((d) =>
+        normalizeListingRecord({
+          id: d.id,
+          ...d.data(),
+        })
+      );
 
       const campus = CAMPUSES.find(c => c.id === prefs?.campusId);
 
@@ -88,27 +88,22 @@ export default function RenterDashboardScreen({ navigation }: any) {
       }
 
       // 2. property type filter
-      if (prefs?.propertyType) {
+      if (prefs?.propertyTypes?.length) {
         listings = listings.filter(
-          (l: any) => l?.propertyType === prefs.propertyType
+          (l: any) => prefs.propertyTypes.includes(l?.propertyType)
         );
       }
 
       // 3. housing type filter
-      if (prefs?.housingType) {
+      if (prefs?.housingTypes?.length) {
         listings = listings.filter(
-          (l: any) => l?.housingType === prefs.housingType
+          (l: any) => prefs.housingTypes.includes(l?.housingType)
         );
       }
 
       // 4. lease filter 
-      const leaseMonths = parseLeaseMonths(prefs?.leaseLength);
-
-      if (leaseMonths) {
-        listings = listings.filter((l: any) => {
-          if (!l?.leaseLengthMonths) return true;
-          return l.leaseLengthMonths === leaseMonths;
-        });
+      if (prefs?.leaseLengths?.length) {
+        listings = listings.filter((l: any) => prefs.leaseLengths.includes(l?.leaseLength));
       }
 
       // 5. distance filter 
@@ -131,8 +126,8 @@ export default function RenterDashboardScreen({ navigation }: any) {
       const scored = listings.map((l: any) => {
         let score = 0;
 
-        if (prefs?.lifestylePreferences?.length && l?.lifestyleTags) {
-          const overlap = l.lifestyleTags.filter((tag: string) =>
+        if (prefs?.lifestylePreferences?.length && l?.lifestylePreferences) {
+          const overlap = l.lifestylePreferences.filter((tag: string) =>
             prefs.lifestylePreferences.includes(tag)
           ).length;
 

@@ -9,9 +9,10 @@ import {
 } from "react-native";
 import { Filters, SortBy } from "../utils/types";
 import { colors, sizes } from "../../../styles/globalStyles";
-
-const PROPERTY_TYPES = ["Condo", "House", "Studio"];
-const LEASE_LENGTHS = ["1 Month", "4 Month", "8 Month", "12 Month"];
+import {
+  LISTING_LEASE_LENGTHS,
+  PROPERTY_TYPES,
+} from "../../shared/listingSchema";
 
 export default function FilterBar({
   filters,
@@ -167,7 +168,7 @@ export default function FilterBar({
 
             {/* LEASE */}
             <Text style={styles.section}>Lease Length</Text>
-            {LEASE_LENGTHS.map((l) => (
+            {LISTING_LEASE_LENGTHS.map((l) => (
               <Pressable
                 key={l}
                 style={[

@@ -8,7 +8,7 @@ import { getUserLocation } from "./utils/location";
 
 export default function MapScreen({ navigation }: any) {
   const [listings, setListings] = useState<any[]>([]);
-  const [setPrefs] = useState<any>(null);
+  const [, setPrefs] = useState<any>(null);
   const [userLocation, setUserLocation] = useState<any>(null);
   const [selected, setSelected] = useState<any>(null);
 

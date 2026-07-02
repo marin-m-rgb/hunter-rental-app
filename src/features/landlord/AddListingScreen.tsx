@@ -13,11 +13,13 @@ import { arrayUnion, collection, doc, writeBatch } from "firebase/firestore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../../config/firebase";
 import { colors } from "../../styles/globalStyles";
+import {
+  LISTING_LEASE_LENGTHS,
+  PROPERTY_TYPES,
+} from "../shared/listingSchema";
 
-const propertyTypes = ["Condo", "House", "Room"];
 const housingTypes = ["Shared", "Private"];
 const pricePeriods = ["per day", "per month"];
-const leaseLengths = ["Daily", "4 Month", "8 Months", "12 Months"];
 const lifestylePreferences = [
   "Quiet",
   "Social",
@@ -329,7 +331,7 @@ export default function AddListingScreen({ navigation }: any) {
 
           <Text style={styles.label}>Type of property</Text>
           <OptionGroup
-            options={propertyTypes}
+            options={[...PROPERTY_TYPES]}
             value={propertyType}
             onChange={setPropertyType}
           />
@@ -384,7 +386,7 @@ export default function AddListingScreen({ navigation }: any) {
 
           <Text style={styles.label}>Lease Length</Text>
           <OptionGroup
-            options={leaseLengths}
+            options={[...LISTING_LEASE_LENGTHS]}
             value={leaseLength}
             onChange={setLeaseLength}
           />

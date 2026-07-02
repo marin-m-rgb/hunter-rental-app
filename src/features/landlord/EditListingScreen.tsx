@@ -14,10 +14,14 @@ import { arrayRemove, doc, updateDoc, writeBatch } from "firebase/firestore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../../config/firebase";
 import { colors } from "../../styles/globalStyles";
+import {
+  LISTING_LEASE_LENGTHS,
+  PROPERTY_TYPES,
+  normalizeLeaseLength,
+  normalizePropertyType,
+} from "../shared/listingSchema";
 
-const propertyTypes = ["Condo", "House", "Room"];
 const pricePeriods = ["per day", "per month"];
-const leaseLengths = ["Daily", "4 Month", "8 Months", "12 Months"];
 const listingStatuses = ["Active", "Rented", "Inactive"];
 
 type Coordinates = {
@@ -49,12 +53,16 @@ export default function EditListingScreen({ route, navigation }: any) {
   const [floor, setFloor] = useState(
     listing?.floor !== undefined ? String(listing.floor) : ""
   );
-  const [propertyType, setPropertyType] = useState(listing?.propertyType || "");
+  const [propertyType, setPropertyType] = useState(
+    normalizePropertyType(listing?.propertyType) || ""
+  );
   const [priceAmount, setPriceAmount] = useState(
     listing?.price?.amount !== undefined ? String(listing.price.amount) : ""
   );
   const [pricePeriod, setPricePeriod] = useState(listing?.price?.period || "");
-  const [leaseLength, setLeaseLength] = useState(listing?.leaseLength || "");
+  const [leaseLength, setLeaseLength] = useState(
+    normalizeLeaseLength(listing?.leaseLength) || ""
+  );
   const [status, setStatus] = useState(listing?.status || "Active");
   const [image1, setImage1] = useState(initialImages[0] || "");
   const [image2, setImage2] = useState(initialImages[1] || "");
@@ -354,7 +362,7 @@ export default function EditListingScreen({ route, navigation }: any) {
 
           <Text style={styles.label}>Type of property</Text>
           <OptionGroup
-            options={propertyTypes}
+            options={[...PROPERTY_TYPES]}
             value={propertyType}
             onChange={setPropertyType}
           />
@@ -377,7 +385,7 @@ export default function EditListingScreen({ route, navigation }: any) {
 
           <Text style={styles.label}>Lease Length</Text>
           <OptionGroup
-            options={leaseLengths}
+            options={[...LISTING_LEASE_LENGTHS]}
             value={leaseLength}
             onChange={setLeaseLength}
           />
