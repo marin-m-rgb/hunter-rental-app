@@ -16,6 +16,7 @@ import { doc, getDoc } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { auth, db } from "../../config/firebase";
 import { colors, buttons } from "../../styles/globalStyles";
+import { Ionicons } from "@expo/vector-icons";
 
 const REMEMBER_LOGIN_KEY = "hunterRememberLogin";
 
@@ -29,6 +30,7 @@ export default function LoginScreen({ navigation }: any) {
     const [rememberMe, setRememberMe] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => {
         const loadRememberedLogin = async () => {
@@ -148,14 +150,24 @@ export default function LoginScreen({ navigation }: any) {
                         placeholderTextColor="#A0A0A0"
                     />
 
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Password"
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry
-                        placeholderTextColor="#A0A0A0"
-                    />
+                    <View style={styles.passwordContainer}>
+                        <TextInput
+                            style={styles.passwordInput}
+                            placeholder="Password"
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry={!showPassword}
+                            placeholderTextColor="#A0A0A0"
+                        />
+
+                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                            <Ionicons
+                                name={showPassword ? "eye-off" : "eye"}
+                                size={22}
+                                color="#6B7280"
+                            />
+                        </TouchableOpacity>
+                    </View>
 
                     <TouchableOpacity
                         style={styles.rememberRow}
@@ -238,6 +250,22 @@ const styles = StyleSheet.create({
         color: "#111827",
         textAlignVertical: "center",
         includeFontPadding: false,
+    },
+
+    passwordContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#F3F4F6",
+        borderRadius: 14,
+        marginBottom: 12,
+        paddingHorizontal: 18,
+    },
+
+    passwordInput: {
+        flex: 1,
+        paddingVertical: 16,
+        fontSize: 16,
+        color: "#111827",
     },
 
     rememberRow: {

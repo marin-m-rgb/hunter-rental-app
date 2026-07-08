@@ -15,12 +15,15 @@ import { doc, writeBatch } from "firebase/firestore";
 
 import { auth, db } from "../../config/firebase";
 import { colors, buttons } from "../../styles/globalStyles";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function SignupScreen({ navigation }: any) {
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [confirmPassword, setConfirmPassword] = useState("");
     const [role, setRole] = useState<"renter" | "landlord" | null>(null);
 
@@ -182,23 +185,45 @@ export default function SignupScreen({ navigation }: any) {
                         </TouchableOpacity>
                     </View>
 
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Password"
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry
-                        placeholderTextColor="#A0A0A0"
-                    />
+                    <View style={styles.passwordContainer}>
+                        <TextInput
+                            style={styles.passwordInput}
+                            placeholder="Password"
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry={!showPassword}
+                            placeholderTextColor="#A0A0A0"
+                        />
 
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Confirm Password"
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                        secureTextEntry
-                        placeholderTextColor="#A0A0A0"
-                    />
+                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                            <Ionicons
+                                name={showPassword ? "eye-off" : "eye"}
+                                size={22}
+                                color="#6B7280"
+                            />
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.passwordContainer}>
+                        <TextInput
+                            style={styles.passwordInput}
+                            placeholder="Confirm Password"
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
+                            secureTextEntry={!showConfirmPassword}
+                            placeholderTextColor="#A0A0A0"
+                        />
+
+                        <TouchableOpacity
+                            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                        >
+                            <Ionicons
+                                name={showConfirmPassword ? "eye-off" : "eye"}
+                                size={22}
+                                color="#6B7280"
+                            />
+                        </TouchableOpacity>
+                    </View>
 
                     <TouchableOpacity
                         style={styles.passwordHintContainer}
@@ -321,6 +346,22 @@ const styles = StyleSheet.create({
     passwordHintContainer: {
         alignSelf: "flex-start",
         marginBottom: 8,
+    },
+
+    passwordContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#F3F4F6",
+        borderRadius: 14,
+        marginBottom: 12,
+        paddingHorizontal: 18,
+    },
+
+    passwordInput: {
+        flex: 1,
+        paddingVertical: 16,
+        fontSize: 16,
+        color: "#111827",
     },
 
     link: {
