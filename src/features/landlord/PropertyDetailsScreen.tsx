@@ -134,16 +134,17 @@ export default function PropertyDetailsScreen({ route, navigation }: any) {
     (ownerLoading ? "Loading owner..." : "Owner unavailable");
   const ownerPhone = owner?.phoneNumber || "";
 
-  const details = [
-    { label: "Address", value: listing.address },
-    { label: "City", value: listing.city },
-    { label: "Property Type", value: listing.propertyType },
-    { label: "Lease Length", value: listing.leaseLength },
-    { label: "Size", value: listing.sizeSqft ? `${listing.sizeSqft} sqft` : "" },
+  const highlightMetrics = [
     { label: "Bedrooms", value: listing.bedrooms },
     { label: "Bathrooms", value: listing.bathrooms },
+    { label: "Size", value: listing.sizeSqft ? `${listing.sizeSqft} sqft` : "" },
+  ].filter((detail) => detail.value !== undefined && detail.value !== "");
+
+  const detailCards = [
+    { label: "Property Type", value: listing.propertyType },
+    { label: "Lease Length", value: listing.leaseLength },
     { label: "Floor", value: listing.floor },
-    { label: "Status", value: listing.status },
+    { label: "Housing", value: listing.housingType },
   ].filter((detail) => detail.value !== undefined && detail.value !== "");
 
   const handleFavorite = async () => {
@@ -239,17 +240,23 @@ export default function PropertyDetailsScreen({ route, navigation }: any) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Text style={styles.backButtonText}>‹</Text>
-      </Pressable>
+      <View style={styles.header}>
+        <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>‹</Text>
+        </Pressable>
 
-      <Pressable style={styles.favoriteButton} onPress={handleFavorite}>
-        <Ionicons
-          name={favorite ? "heart" : "heart-outline"}
-          size={22}
-          color={favorite ? colors.primaryBlue : "#111827"}
-        />
-      </Pressable>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {listing.name}
+        </Text>
+
+        <Pressable style={styles.favoriteButton} onPress={handleFavorite}>
+          <Ionicons
+            name={favorite ? "heart" : "heart-outline"}
+            size={22}
+            color={favorite ? colors.primaryBlue : "#111827"}
+          />
+        </Pressable>
+      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -299,16 +306,41 @@ export default function PropertyDetailsScreen({ route, navigation }: any) {
         </View>
 
         <View style={styles.detailsContainer}>
-          <Text style={styles.title}>{listing.name}</Text>
-          <Text style={styles.location}>{listing.city}</Text>
-
           <Text style={styles.price}>
             ${listing.price?.amount}/{listing.price?.period}
           </Text>
 
-          <Text style={styles.summary}>
-            {listing.bedrooms} bed · {listing.bathrooms} bath
+          <Text style={styles.location}>
+            {listing.address || listing.city || "Address unavailable"}
           </Text>
+
+          {highlightMetrics.length > 0 ? (
+            <View style={styles.metricsRow}>
+              {highlightMetrics.map((metric) => (
+                <View key={metric.label} style={styles.metricCard}>
+                  <Text style={styles.metricLabel}>{metric.label}</Text>
+                  <Text style={styles.metricValue}>{metric.value}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {listing.description ? (
+            <View style={styles.descriptionCard}>
+              <Text style={styles.description}>{listing.description}</Text>
+            </View>
+          ) : null}
+
+          {detailCards.length > 0 ? (
+            <View style={styles.detailGrid}>
+              {detailCards.map((detail) => (
+                <View key={detail.label} style={styles.detailCard}>
+                  <Text style={styles.detailLabel}>{detail.label}</Text>
+                  <Text style={styles.detailValue}>{detail.value}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
           <View style={styles.ownerCard}>
             {owner?.avatarUrl ? (
@@ -326,24 +358,6 @@ export default function PropertyDetailsScreen({ route, navigation }: any) {
                 <Text style={styles.ownerPhone}>{ownerPhone}</Text>
               ) : null}
             </View>
-          </View>
-
-          <Text style={styles.sectionTitle}>Details</Text>
-
-          <View style={styles.formCard}>
-            {details.map((detail) => (
-              <View key={detail.label} style={styles.formRow}>
-                <Text style={styles.formLabel}>{detail.label}</Text>
-                <Text style={styles.formValue}>{detail.value}</Text>
-              </View>
-            ))}
-
-            {listing.description && (
-              <View style={styles.descriptionRow}>
-                <Text style={styles.formLabel}>Description</Text>
-                <Text style={styles.description}>{listing.description}</Text>
-              </View>
-            )}
           </View>
         </View>
       </ScrollView>
@@ -373,17 +387,23 @@ const styles = StyleSheet.create({
     paddingBottom: 118,
   },
 
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+    backgroundColor: "#F6F7FB",
+  },
+
   backButton: {
-    position: "absolute",
-    top: 52,
-    left: 20,
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 2,
   },
 
   backButtonText: {
@@ -392,17 +412,21 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
 
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#111827",
+    textAlign: "center",
+  },
+
   favoriteButton: {
-    position: "absolute",
-    top: 52,
-    right: 20,
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 2,
   },
 
   carousel: {
@@ -447,12 +471,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
 
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#111827",
-  },
-
   location: {
     fontSize: 15,
     color: "#6B7280",
@@ -466,9 +484,30 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
 
-  summary: {
-    fontSize: 15,
+  metricsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 18,
+  },
+
+  metricCard: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+  },
+
+  metricLabel: {
+    fontSize: 12,
     color: "#6B7280",
+    fontWeight: "700",
+  },
+
+  metricValue: {
+    fontSize: 18,
+    color: "#111827",
+    fontWeight: "800",
     marginTop: 6,
   },
 
@@ -478,7 +517,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 14,
     padding: 14,
-    marginTop: 18,
+    marginTop: 22,
   },
 
   ownerAvatar: {
@@ -517,54 +556,46 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  sectionTitle: {
-    fontSize: 19,
-    fontWeight: "800",
-    color: "#111827",
-    marginTop: 22,
-    marginBottom: 10,
+  detailGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 12,
   },
 
-  formCard: {
+  detailCard: {
+    width: "48%",
     backgroundColor: "#FFFFFF",
     borderRadius: 14,
-    overflow: "hidden",
+    padding: 14,
   },
 
-  formRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
-    gap: 12,
-  },
-
-  formLabel: {
-    fontSize: 13,
+  detailLabel: {
+    fontSize: 12,
     color: "#6B7280",
     fontWeight: "700",
+    textTransform: "uppercase",
   },
 
-  formValue: {
-    flex: 1,
-    textAlign: "right",
-    fontSize: 14,
+  detailValue: {
+    fontSize: 16,
     color: "#111827",
-    fontWeight: "700",
+    fontWeight: "800",
+    marginTop: 8,
+    lineHeight: 22,
   },
 
-  descriptionRow: {
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+  descriptionCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 16,
+    marginTop: 16,
   },
 
   description: {
     fontSize: 14,
     lineHeight: 20,
     color: "#374151",
-    marginTop: 8,
   },
 
   footer: {

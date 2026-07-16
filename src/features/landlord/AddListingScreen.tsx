@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import {
+  Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -9,9 +11,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { arrayUnion, collection, doc, writeBatch } from "firebase/firestore";
+import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { auth, db } from "../../config/firebase";
+import { auth, db, storage } from "../../config/firebase";
 import { colors } from "../../styles/globalStyles";
 import {
   LISTING_LEASE_LENGTHS,
@@ -50,9 +54,7 @@ export default function AddListingScreen({ navigation }: any) {
   const [priceAmount, setPriceAmount] = useState("");
   const [pricePeriod, setPricePeriod] = useState("");
   const [leaseLength, setLeaseLength] = useState("");
-  const [image1, setImage1] = useState("");
-  const [image2, setImage2] = useState("");
-  const [image3, setImage3] = useState("");
+  const [images, setImages] = useState(["", "", ""]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -129,9 +131,64 @@ export default function AddListingScreen({ navigation }: any) {
     setPriceAmount("");
     setPricePeriod("");
     setLeaseLength("");
-    setImage1("");
-    setImage2("");
-    setImage3("");
+    setImages(["", "", ""]);
+  };
+
+  const pickListingImage = async (index: number) => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert("Permission required", "Allow photo library access to add listing images.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    const assetUri = result.assets[0].uri;
+
+    setImages((current) => {
+      const next = [...current];
+      next[index] = assetUri;
+      return next;
+    });
+  };
+
+  const uploadListingImage = async (
+    imageUri: string,
+    userID: string,
+    listingID: string,
+    index: number
+  ) => {
+    const response = await fetch(imageUri);
+    const blob = await response.blob();
+    const imageRef = ref(
+      storage,
+      `listing-images/${userID}/${listingID}/image-${index + 1}-${Date.now()}.jpg`
+    );
+
+    try {
+      await uploadBytes(imageRef, blob, {
+        contentType: blob.type || "image/jpeg",
+      });
+    } finally {
+      if ("close" in blob && typeof blob.close === "function") {
+        blob.close();
+      }
+    }
+
+    const downloadURL = await getDownloadURL(imageRef);
+
+    return {
+      downloadURL,
+      path: imageRef.fullPath,
+    };
   };
 
   const handleCreateListing = async () => {
@@ -140,9 +197,7 @@ export default function AddListingScreen({ navigation }: any) {
     const cleanAddress = address.trim();
     const cleanCity = city.trim();
     const cleanDescription = description.trim();
-    const cleanImage1 = image1.trim();
-    const cleanImage2 = image2.trim();
-    const cleanImage3 = image3.trim();
+    const cleanImages = images.map((image) => image.trim());
 
     const numericSize = Number(sizeSqft);
     const numericBedrooms = Number(bedrooms);
@@ -169,9 +224,7 @@ export default function AddListingScreen({ navigation }: any) {
       !priceAmount ||
       !pricePeriod ||
       !leaseLength ||
-      !cleanImage1 ||
-      !cleanImage2 ||
-      !cleanImage3
+      cleanImages.some((image) => !image)
     ) {
       setError("All fields are required.");
       return;
@@ -202,6 +255,20 @@ export default function AddListingScreen({ navigation }: any) {
       const listingRef = doc(collection(db, "listings"));
       const userRef = doc(db, "users", user.uid);
       const batch = writeBatch(db);
+      const uploadedImages: { downloadURL: string; path: string }[] = [];
+
+      try {
+        for (let i = 0; i < cleanImages.length; i += 1) {
+          uploadedImages.push(
+            await uploadListingImage(cleanImages[i], user.uid, listingRef.id, i)
+          );
+        }
+      } catch (uploadError: any) {
+        await Promise.all(
+          uploadedImages.map((image) => deleteObject(ref(storage, image.path)).catch(() => null))
+        );
+        throw uploadError;
+      }
 
       batch.set(listingRef, {
         landlordID: user.uid,
@@ -222,7 +289,7 @@ export default function AddListingScreen({ navigation }: any) {
           period: pricePeriod,
         },
         leaseLength,
-        images: [cleanImage1, cleanImage2, cleanImage3],
+        images: uploadedImages.map((image) => image.downloadURL),
         lat: coordinates.lat,
         lng: coordinates.lng,
         status: "Active",
@@ -391,32 +458,27 @@ export default function AddListingScreen({ navigation }: any) {
             onChange={setLeaseLength}
           />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Image 1"
-            value={image1}
-            onChangeText={setImage1}
-            autoCapitalize="none"
-            placeholderTextColor="#9CA3AF"
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Image 2"
-            value={image2}
-            onChangeText={setImage2}
-            autoCapitalize="none"
-            placeholderTextColor="#9CA3AF"
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Image 3"
-            value={image3}
-            onChangeText={setImage3}
-            autoCapitalize="none"
-            placeholderTextColor="#9CA3AF"
-          />
+          <Text style={styles.label}>Listing Photos</Text>
+          <View style={styles.imagePickerGrid}>
+            {images.map((imageUri, index) => (
+              <TouchableOpacity
+                key={`listing-image-${index}`}
+                style={styles.imagePickerCard}
+                onPress={() => pickListingImage(index)}
+              >
+                {imageUri ? (
+                  <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                ) : (
+                  <View style={styles.imagePlaceholder}>
+                    <Text style={styles.imagePlaceholderPlus}>+</Text>
+                    <Text style={styles.imagePlaceholderText}>
+                      Select photo {index + 1}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
 
           {error && <Text style={styles.error}>{error}</Text>}
 
@@ -518,6 +580,47 @@ const styles = StyleSheet.create({
     color: "#DC2626",
     marginBottom: 12,
     fontWeight: "600",
+  },
+
+  imagePickerGrid: {
+    gap: 12,
+    marginBottom: 12,
+  },
+
+  imagePickerCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    overflow: "hidden",
+    minHeight: 180,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+
+  imagePreview: {
+    width: "100%",
+    height: 180,
+  },
+
+  imagePlaceholder: {
+    minHeight: 180,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    backgroundColor: "#FFFFFF",
+  },
+
+  imagePlaceholderPlus: {
+    fontSize: 30,
+    lineHeight: 34,
+    color: colors.primaryBlue,
+    fontWeight: "400",
+  },
+
+  imagePlaceholderText: {
+    fontSize: 14,
+    color: "#6B7280",
+    fontWeight: "600",
+    marginTop: 8,
   },
 
   button: {

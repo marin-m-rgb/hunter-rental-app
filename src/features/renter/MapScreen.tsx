@@ -2,17 +2,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, Dimensions, Pressable } from "react-native";
 import MapView, { Marker, Region } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { collection, getDocs, doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../../config/firebase";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../../config/firebase";
 import { getUserLocation } from "./utils/location";
 
 export default function MapScreen({ navigation }: any) {
   const [listings, setListings] = useState<any[]>([]);
-  const [, setPrefs] = useState<any>(null);
   const [userLocation, setUserLocation] = useState<any>(null);
   const [selected, setSelected] = useState<any>(null);
-
-  const user = auth.currentUser;
 
   // LOCATION
   useEffect(() => {
@@ -21,20 +18,6 @@ export default function MapScreen({ navigation }: any) {
       if (loc) setUserLocation(loc);
     };
     loadLocation();
-  }, []);
-
-  // PREFS 
-  useEffect(() => {
-    const loadPrefs = async () => {
-      if (!user) return;
-
-      const snap = await getDoc(doc(db, "users", user.uid));
-      if (snap.exists()) {
-        setPrefs(snap.data()?.renterPreferences || null);
-      }
-    };
-
-    loadPrefs();
   }, []);
 
   // LISTINGS

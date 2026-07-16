@@ -21,6 +21,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../styles/globalStyles";
+import ListingCard from "./components/ListingCard";
 import { CAMPUSES } from "./data/campuses";
 import { getDistanceKm } from "./utils/distance";
 import {
@@ -243,21 +244,11 @@ export default function RenterDashboardScreen({ navigation }: any) {
           </Text>
         ) : (
           recommendations.map((item) => (
-            <TouchableOpacity
+            <ListingCard
               key={item.id}
-              style={styles.propertyCard}
-              onPress={() =>
-                navigation.navigate("PropertyDetailsScreen", { listing: item })
-              }
-            >
-              <Image source={{ uri: item.images?.[0] }} style={styles.image} />
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                <Text style={styles.cardSub}>
-                  ${item.price?.amount} · {item.city}
-                </Text>
-              </View>
-            </TouchableOpacity>
+              item={item}
+              navigation={navigation}
+            />
           ))
         )}
 
@@ -354,33 +345,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#111827",
-  },
-
-  propertyCard: {
-    marginHorizontal: 20,
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    marginBottom: 10,
-    overflow: "hidden",
-  },
-
-  image: {
-    width: "100%",
-    height: 120
-  },
-
-  cardContent: {
-    padding: 12
-  },
-
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: "700"
-  },
-
-  cardSub: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 4
   },
 });

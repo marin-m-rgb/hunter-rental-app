@@ -15,7 +15,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { doc, getDoc, writeBatch } from "firebase/firestore";
 import { deleteUser, signOut } from "firebase/auth";
-import { auth, db } from "../../config/firebase";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { auth, db, storage } from "../../config/firebase";
 import { buttons, colors } from "../../styles/globalStyles";
 
 const InfoRow = ({ label, value }: { label: string; value: any }) => (
@@ -78,6 +79,31 @@ export default function LandlordProfileScreen({ navigation }: any) {
     await batch.commit();
   };
 
+  const uploadAvatarImage = async (imageUri: string) => {
+    if (!user) {
+      throw new Error("User not found.");
+    }
+
+    const response = await fetch(imageUri);
+    const blob = await response.blob();
+    const avatarRef = ref(
+      storage,
+      `avatar-images/${user.uid}/avatar-${Date.now()}.jpg`
+    );
+
+    try {
+      await uploadBytes(avatarRef, blob, {
+        contentType: blob.type || "image/jpeg",
+      });
+    } finally {
+      if ("close" in blob && typeof blob.close === "function") {
+        blob.close();
+      }
+    }
+
+    return getDownloadURL(avatarRef);
+  };
+
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -94,9 +120,32 @@ export default function LandlordProfileScreen({ navigation }: any) {
     });
 
     if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      setAvatarUrl(uri);
-      updateSharedProfile({ avatarUrl: uri }, { avatarUrl: uri });
+      const previousAvatarUrl = avatarUrl;
+
+      try {
+        const localUri = result.assets[0].uri;
+
+        setAvatarUrl(localUri);
+
+        const uploadedAvatarUrl = await uploadAvatarImage(localUri);
+
+        await updateSharedProfile(
+          { avatarUrl: uploadedAvatarUrl },
+          { avatarUrl: uploadedAvatarUrl }
+        );
+
+        setAvatarUrl(uploadedAvatarUrl);
+        setProfile((current: any) => ({
+          ...current,
+          avatarUrl: uploadedAvatarUrl,
+        }));
+      } catch (e: any) {
+        setAvatarUrl(previousAvatarUrl);
+        Alert.alert(
+          "Avatar upload failed",
+          e?.message || "Could not upload avatar."
+        );
+      }
     }
   };
 

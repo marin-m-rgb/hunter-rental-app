@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { View, TextInput, FlatList, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { auth, db } from "../../config/firebase";
 import ListingCard from "./components/ListingCard";
 import FilterBar from "./components/FilterBar";
@@ -45,9 +45,9 @@ export default function SearchScreen({ navigation }: any) {
       const user = auth.currentUser;
       if (!user) return;
 
-      const snap = await getDocs(collection(db, "users"));
-      const userDoc = snap.docs.find(d => d.id === user.uid);
-      setPrefs(normalizeRenterPreferences(userDoc?.data()?.renterPreferences || null));
+      const snap = await getDoc(doc(db, "users", user.uid));
+      const prefs = snap.exists() ? snap.data()?.renterPreferences || null : null;
+      setPrefs(normalizeRenterPreferences(prefs));
     };
     loadPrefs();
   }, []);
