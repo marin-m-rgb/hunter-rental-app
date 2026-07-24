@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 16,
     right: 16,
-    bottom: 96,
+    bottom: 112,
     backgroundColor: colors.deepPurple,
     borderRadius: 14,
     paddingVertical: 16,

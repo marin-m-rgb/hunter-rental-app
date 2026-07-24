@@ -138,12 +138,12 @@ export default function PropertyDetailsScreen({ route, navigation }: any) {
     { label: "Bedrooms", value: listing.bedrooms },
     { label: "Bathrooms", value: listing.bathrooms },
     { label: "Size", value: listing.sizeSqft ? `${listing.sizeSqft} sqft` : "" },
+    { label: "Floor", value: listing.floor },
   ].filter((detail) => detail.value !== undefined && detail.value !== "");
 
   const detailCards = [
     { label: "Property Type", value: listing.propertyType },
     { label: "Lease Length", value: listing.leaseLength },
-    { label: "Floor", value: listing.floor },
     { label: "Housing", value: listing.housingType },
   ].filter((detail) => detail.value !== undefined && detail.value !== "");
 
@@ -325,23 +325,6 @@ export default function PropertyDetailsScreen({ route, navigation }: any) {
             </View>
           ) : null}
 
-          {listing.description ? (
-            <View style={styles.descriptionCard}>
-              <Text style={styles.description}>{listing.description}</Text>
-            </View>
-          ) : null}
-
-          {detailCards.length > 0 ? (
-            <View style={styles.detailGrid}>
-              {detailCards.map((detail) => (
-                <View key={detail.label} style={styles.detailCard}>
-                  <Text style={styles.detailLabel}>{detail.label}</Text>
-                  <Text style={styles.detailValue}>{detail.value}</Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
-
           <View style={styles.ownerCard}>
             {owner?.avatarUrl ? (
               <Image source={{ uri: owner.avatarUrl }} style={styles.ownerAvatarImage} />
@@ -359,6 +342,24 @@ export default function PropertyDetailsScreen({ route, navigation }: any) {
               ) : null}
             </View>
           </View>
+
+          {listing.description ? (
+            <View style={styles.descriptionCard}>
+              <Text style={styles.metricLabel}>Description</Text>
+              <Text style={styles.description}>{listing.description}</Text>
+            </View>
+          ) : null}
+
+          {detailCards.length > 0 ? (
+            <View style={styles.detailList}>
+              {detailCards.map((detail) => (
+                <View key={detail.label} style={styles.detailCard}>
+                  <Text style={styles.detailLabel}>{detail.label}</Text>
+                  <Text style={styles.detailValue}>{detail.value}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -486,12 +487,13 @@ const styles = StyleSheet.create({
 
   metricsRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
     marginTop: 18,
   },
 
   metricCard: {
-    flex: 1,
+    width: "48%",
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
     paddingVertical: 14,
@@ -556,15 +558,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  detailGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  detailList: {
     gap: 10,
     marginTop: 12,
   },
 
   detailCard: {
-    width: "48%",
     backgroundColor: "#FFFFFF",
     borderRadius: 14,
     padding: 14,
@@ -574,7 +573,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#6B7280",
     fontWeight: "700",
-    textTransform: "uppercase",
   },
 
   detailValue: {
@@ -596,6 +594,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: "#374151",
+    marginTop: 8,
   },
 
   footer: {
@@ -610,7 +609,7 @@ const styles = StyleSheet.create({
   },
 
   button: {
-    backgroundColor: "#111827",
+    backgroundColor: colors.deepPurple,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",

@@ -15,7 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { auth, db, storage } from "../../config/firebase";
 import { doc, getDoc, writeBatch } from "firebase/firestore";
-import { deleteUser, signOut } from "firebase/auth";
+import { signOut } from "firebase/auth";
 import { colors, buttons } from "../../styles/globalStyles";
 import { normalizeRenterPreferences } from "../shared/listingSchema";
 import { CAMPUSES } from "./data/campuses";
@@ -180,38 +180,6 @@ export default function RenterProfileScreen({ navigation }: any) {
     ]);
   };
 
-  const deleteAccount = async () => {
-    if (!user) return;
-
-    try {
-      await deleteUser(user);
-    } catch (e: any) {
-      Alert.alert(
-        "Delete account failed",
-        e?.code === "auth/requires-recent-login"
-          ? "Please log in again before deleting your account."
-          : e?.message || "Could not delete account."
-      );
-      return;
-    }
-
-    try {
-      const batch = writeBatch(db);
-
-      batch.delete(doc(db, "users", user.uid));
-      batch.delete(doc(db, "sharedUsers", user.uid));
-
-      await batch.commit();
-    } catch {
-      Alert.alert(
-        "Account deleted",
-        "Your sign-in was removed, but some profile data could not be deleted automatically."
-      );
-    }
-
-    navigation.reset({ index: 0, routes: [{ name: "Login" }] });
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -314,10 +282,6 @@ export default function RenterProfileScreen({ navigation }: any) {
             onPress={logout}
           >
             <Text style={buttons.secondaryText}>Log out</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.deleteButton} onPress={deleteAccount}>
-            <Text style={styles.deleteText}>Delete account</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -437,15 +401,5 @@ const styles = StyleSheet.create({
 
   actionSpacing: {
     marginTop: 12,
-  },
-
-  deleteButton: {
-    padding: 14,
-    alignItems: "center",
-  },
-
-  deleteText: {
-    color: "red",
-    fontWeight: "700",
   },
 });
