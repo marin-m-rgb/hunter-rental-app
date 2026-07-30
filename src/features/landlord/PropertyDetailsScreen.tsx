@@ -18,6 +18,7 @@ import {
   getDoc,
   updateDoc,
 } from "firebase/firestore";
+import MapView, { Marker, Region } from "react-native-maps";
 import { auth, db } from "../../config/firebase";
 import { colors } from "../../styles/globalStyles";
 import {
@@ -42,6 +43,24 @@ export default function PropertyDetailsScreen({ route, navigation }: any) {
         : [],
     [listing?.images]
   );
+
+  const listingRegion = useMemo<Region | null>(() => {
+    if (
+      typeof listing?.lat !== "number" ||
+      typeof listing?.lng !== "number" ||
+      !Number.isFinite(listing.lat) ||
+      !Number.isFinite(listing.lng)
+    ) {
+      return null;
+    }
+
+    return {
+      latitude: listing.lat,
+      longitude: listing.lng,
+      latitudeDelta: 0.012,
+      longitudeDelta: 0.012,
+    };
+  }, [listing?.lat, listing?.lng]);
 
   const getSharedUserProfile = (value: any) => {
     if (Array.isArray(value)) {
@@ -360,6 +379,26 @@ export default function PropertyDetailsScreen({ route, navigation }: any) {
               ))}
             </View>
           ) : null}
+
+          {listingRegion ? (
+            <View style={styles.mapCard}>
+              <MapView
+                style={styles.map}
+                initialRegion={listingRegion}
+                scrollEnabled={false}
+                zoomEnabled={false}
+                rotateEnabled={false}
+                pitchEnabled={false}
+              >
+                <Marker
+                  coordinate={{
+                    latitude: listingRegion.latitude,
+                    longitude: listingRegion.longitude,
+                  }}
+                />
+              </MapView>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -595,6 +634,17 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: "#374151",
     marginTop: 8,
+  },
+
+  mapCard: {
+    height: 180,
+    marginTop: 16,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+
+  map: {
+    flex: 1,
   },
 
   footer: {
