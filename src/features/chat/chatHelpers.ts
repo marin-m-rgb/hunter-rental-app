@@ -1,7 +1,16 @@
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "../../config/firebase";
+import {
+  Conversation,
+  FirestoreDate,
+  Listing,
+  UserProfile,
+} from "../shared/types";
 
-export const getDisplayName = (profile: any, fallbackEmail = "") => {
+export const getDisplayName = (
+  profile: UserProfile | null | undefined,
+  fallbackEmail = ""
+) => {
   const fullName = [profile?.firstName, profile?.lastName]
     .map((value) => value?.trim())
     .filter(Boolean)
@@ -16,7 +25,15 @@ export const getDisplayName = (profile: any, fallbackEmail = "") => {
   );
 };
 
-export const getListingLandlordId = (listing: any) =>
+type ListingWithLegacyOwnerFields = Partial<Listing> & {
+  landlordId?: string;
+  ownerID?: string;
+  ownerId?: string;
+  userID?: string;
+  userId?: string;
+};
+
+export const getListingLandlordId = (listing: ListingWithLegacyOwnerFields | null | undefined) =>
   listing?.landlordID ||
   listing?.landlordId ||
   listing?.ownerID ||
@@ -31,10 +48,10 @@ export const buildConversationId = (
   landlordId: string
 ) => `${listingId}_${renterId}_${landlordId}`;
 
-export const toDate = (value: any) => {
+export const toDate = (value: FirestoreDate) => {
   if (!value) return null;
 
-  if (typeof value?.toDate === "function") {
+  if (typeof value === "object" && "toDate" in value && typeof value.toDate === "function") {
     return value.toDate();
   }
 
@@ -42,11 +59,13 @@ export const toDate = (value: any) => {
     return value;
   }
 
+  if (typeof value !== "string") return null;
+
   const parsedDate = new Date(value);
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
 };
 
-export const formatDateTime = (value: any) => {
+export const formatDateTime = (value: FirestoreDate) => {
   const date = toDate(value);
 
   if (!date) return "Date not set";
@@ -59,7 +78,7 @@ export const formatDateTime = (value: any) => {
   });
 };
 
-export const getCounterpartyName = (conversation: any, userId: string) =>
+export const getCounterpartyName = (conversation: Conversation, userId: string) =>
   conversation?.renterID === userId
     ? conversation?.landlordName || "Landlord"
     : conversation?.renterName || "Renter";
@@ -73,11 +92,11 @@ export const ensureConversation = async ({
   landlordEmail,
   renterEmail,
 }: {
-  listing: any;
+  listing: Listing;
   landlordID: string;
   renterID: string;
-  landlordProfile: any;
-  renterProfile: any;
+  landlordProfile: UserProfile | null;
+  renterProfile: UserProfile | null;
   landlordEmail?: string;
   renterEmail?: string;
 }) => {
@@ -112,15 +131,6 @@ export const ensureConversation = async ({
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-  } else {
-    await setDoc(
-      conversationRef,
-      {
-        ...metadata,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
   }
 
   return conversationId;

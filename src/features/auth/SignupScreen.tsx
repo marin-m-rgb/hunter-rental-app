@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {
+    Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -10,8 +11,8 @@ import {
     View,
 } from "react-native";
 
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, writeBatch } from "firebase/firestore";
+import { createUserWithEmailAndPassword, deleteUser } from "firebase/auth";
+import { doc, getDoc, writeBatch } from "firebase/firestore";
 
 import { auth, db } from "../../config/firebase";
 import { colors, buttons } from "../../styles/globalStyles";
@@ -97,17 +98,39 @@ export default function SignupScreen({ navigation }: any) {
             batch.set(doc(db, "sharedUsers", uid), {
                 firstName: cleanFirstName,
                 lastName: cleanLastName,
-                email: cleanEmail,
-                phoneNumber: "",
                 avatarUrl: "",
             });
 
-            await batch.commit();
+            try {
+                await batch.commit();
+            } catch {
+                try {
+                    const profileSnap = await getDoc(doc(db, "users", uid));
 
-            navigation.reset({
-                index: 0,
-                routes: [{ name: "Login" }],
-            });
+                    if (profileSnap.exists()) {
+                        return;
+                    }
+                } catch {
+                    throw new Error(
+                        "Your account was created, but its profile could not be verified. Please try signing in again later."
+                    );
+                }
+
+                try {
+                    await deleteUser(userCredential.user);
+                } catch {
+                    throw new Error(
+                        "Your account was created, but its profile could not be saved. Please contact support before trying again."
+                    );
+                }
+
+                Alert.alert(
+                    "Account not created",
+                    "We could not save your profile, so the new account was removed. Please try again."
+                );
+                return;
+            }
+
         } catch (e: any) {
             setError(e?.message || "Signup failed");
         } finally {

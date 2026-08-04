@@ -12,9 +12,8 @@ import {
 } from "react-native";
 
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { auth, db } from "../../config/firebase";
+import { auth } from "../../config/firebase";
 import { colors, buttons } from "../../styles/globalStyles";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -70,24 +69,11 @@ export default function LoginScreen({ navigation }: any) {
             setLoading(true);
             setError(null);
 
-            const cred = await signInWithEmailAndPassword(
+            await signInWithEmailAndPassword(
                 auth,
                 cleanEmail,
                 password
             );
-
-            const uid = cred.user.uid;
-
-            const userSnap = await getDoc(doc(db, "users", uid));
-
-            if (!userSnap.exists()) {
-                setError("User profile missing.");
-                return;
-            }
-
-            const data = userSnap.data();
-            const role = data?.role;
-            const hasCompleted = data?.hasCompletedPreferences;
 
             if (rememberMe) {
                 await AsyncStorage.setItem(
@@ -100,25 +86,6 @@ export default function LoginScreen({ navigation }: any) {
                 await AsyncStorage.removeItem(REMEMBER_LOGIN_KEY);
             }
 
-            if (role === "renter") {
-                navigation.reset({
-                    index: 0,
-                    routes: [
-                        {
-                            name: hasCompleted
-                                ? "RenterTabs"
-                                : "RenterPreferencesScreen",
-                        },
-                    ],
-                });
-            } else if (role === "landlord") {
-                navigation.reset({
-                    index: 0,
-                    routes: [{ name: "LandlordTabs" }],
-                });
-            } else {
-                setError("User role not found.");
-            }
         } catch (e: any) {
             setError(e?.message || "Login failed");
         } finally {

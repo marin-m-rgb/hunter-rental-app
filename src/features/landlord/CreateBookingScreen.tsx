@@ -14,10 +14,11 @@ import { addDoc, collection, doc, getDoc, serverTimestamp } from "firebase/fires
 import { auth, db } from "../../config/firebase";
 import { buttons, colors } from "../../styles/globalStyles";
 import { formatDateTime } from "../chat/chatHelpers";
+import { Conversation, toConversation } from "../shared/types";
 
 export default function CreateBookingScreen({ navigation, route }: any) {
   const conversationId = route?.params?.conversationId;
-  const [conversation, setConversation] = useState<any>(null);
+  const [conversation, setConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pickerMode, setPickerMode] = useState<"date" | "time" | null>(null);
@@ -38,7 +39,7 @@ export default function CreateBookingScreen({ navigation, route }: any) {
       }
 
       const snap = await getDoc(doc(db, "conversations", conversationId));
-      setConversation(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+      setConversation(snap.exists() ? toConversation(snap.id, snap.data()) : null);
       setLoading(false);
     };
 

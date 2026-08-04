@@ -17,9 +17,10 @@ import {
   formatDateTime,
   toDate,
 } from "./chatHelpers";
+import { Conversation, toConversation } from "../shared/types";
 
 export default function ConversationsListScreen({ navigation }: any) {
-  const [conversations, setConversations] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const user = auth.currentUser;
 
@@ -38,11 +39,11 @@ export default function ConversationsListScreen({ navigation }: any) {
       conversationsQuery,
       (snap) => {
         const nextConversations = snap.docs
-          .map((docSnap) => ({
-            id: docSnap.id,
-            ...docSnap.data(),
-          }))
-          .sort((a: any, b: any) => {
+          .flatMap((docSnap) => {
+            const conversation = toConversation(docSnap.id, docSnap.data());
+            return conversation ? [conversation] : [];
+          })
+          .sort((a, b) => {
             const left =
               toDate(a.updatedAt)?.getTime() ||
               toDate(a.lastMessageAt)?.getTime() ||

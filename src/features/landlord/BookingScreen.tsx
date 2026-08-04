@@ -13,12 +13,18 @@ import { collection, doc, onSnapshot, query, updateDoc, where } from "firebase/f
 import { auth, db } from "../../config/firebase";
 import { colors } from "../../styles/globalStyles";
 import { formatDateTime, toDate } from "../chat/chatHelpers";
+import { Booking, BookingStatus, toBooking } from "../shared/types";
 
-const bookingStatuses = ["pending", "accepted", "rejected", "completed"];
+const getAvailableBookingStatuses = (currentStatus: BookingStatus): BookingStatus[] => {
+  if (currentStatus === "pending") return ["accepted", "rejected"];
+  if (currentStatus === "accepted") return ["completed"];
+
+  return [];
+};
 
 export default function BookingScreen() {
-  const [bookings, setBookings] = useState<any[]>([]);
-  const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
@@ -39,8 +45,11 @@ export default function BookingScreen() {
       bookingsQuery,
       (snap) => {
         const nextBookings = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a: any, b: any) => {
+          .flatMap((document) => {
+            const booking = toBooking(document.id, document.data());
+            return booking ? [booking] : [];
+          })
+          .sort((a, b) => {
             const aTime =
               toDate(a.scheduledAt)?.getTime() ||
               toDate(a.createdAt)?.getTime() ||
@@ -54,7 +63,7 @@ export default function BookingScreen() {
 
         setBookings(nextBookings);
 
-        setSelectedBooking((current: any) =>
+        setSelectedBooking((current) =>
           current
             ? nextBookings.find((booking) => booking.id === current.id) || current
             : current
@@ -71,7 +80,7 @@ export default function BookingScreen() {
     return unsubscribe;
   }, []);
 
-  const updateBookingStatus = async (nextStatus: string) => {
+  const updateBookingStatus = async (nextStatus: BookingStatus) => {
     if (!selectedBooking?.id) return;
 
     try {
@@ -94,6 +103,8 @@ export default function BookingScreen() {
   }
 
   if (selectedBooking) {
+    const availableStatuses = getAvailableBookingStatuses(selectedBooking.status);
+
     return (
       <SafeAreaView style={styles.container}>
         <Pressable
@@ -130,31 +141,24 @@ export default function BookingScreen() {
             </Text>
           </View>
 
-          <Text style={styles.sectionTitle}>Update status</Text>
+          {availableStatuses.length > 0 ? (
+            <>
+              <Text style={styles.sectionTitle}>Update status</Text>
 
-          <View style={styles.statusGrid}>
-            {bookingStatuses.map((status) => (
-              <Pressable
-                key={status}
-                style={[
-                  styles.statusButton,
-                  selectedBooking.status === status && styles.statusButtonActive,
-                ]}
-                onPress={() => updateBookingStatus(status)}
-                disabled={updating}
-              >
-                <Text
-                  style={[
-                    styles.statusButtonText,
-                    selectedBooking.status === status &&
-                      styles.statusButtonTextActive,
-                  ]}
-                >
-                  {status}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+              <View style={styles.statusGrid}>
+                {availableStatuses.map((status) => (
+                  <Pressable
+                    key={status}
+                    style={styles.statusButton}
+                    onPress={() => updateBookingStatus(status)}
+                    disabled={updating}
+                  >
+                    <Text style={styles.statusButtonText}>{status}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          ) : null}
         </View>
       </SafeAreaView>
     );

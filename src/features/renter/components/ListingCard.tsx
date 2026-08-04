@@ -1,8 +1,14 @@
 import React from "react";
 import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 import { colors } from "../../../styles/globalStyles";
+import { Listing } from "../../shared/types";
 
-export default function ListingCard({ item, navigation }: any) {
+type ListingCardProps = {
+  item: Listing;
+  navigation: any;
+};
+
+export default function ListingCard({ item, navigation }: ListingCardProps) {
 
   const normalizedPrice =
     typeof item?.price === "object" && item?.price !== null

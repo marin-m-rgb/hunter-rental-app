@@ -25,13 +25,14 @@ import {
   ensureConversation,
   getListingLandlordId,
 } from "../chat/chatHelpers";
+import { toUserProfile, UserProfile } from "../shared/types";
 
 const screenWidth = Dimensions.get("window").width;
 
 export default function PropertyDetailsScreen({ route, navigation }: any) {
   const listing = route?.params?.listing;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [owner, setOwner] = useState<any>(null);
+  const [owner, setOwner] = useState<UserProfile | null>(null);
   const [ownerLoading, setOwnerLoading] = useState(false);
   const [favorite, setFavorite] = useState(false);
   const [contactLoading, setContactLoading] = useState(false);
@@ -62,20 +63,18 @@ export default function PropertyDetailsScreen({ route, navigation }: any) {
     };
   }, [listing?.lat, listing?.lng]);
 
-  const getSharedUserProfile = (value: any) => {
+  const getSharedUserProfile = (value: unknown): UserProfile | null => {
     if (Array.isArray(value)) {
-      return (
-        value.find(
-          (item) => item?.firstName || item?.lastName || item?.email || item?.name
-        ) || null
-      );
+      for (const item of value) {
+        const profile = toUserProfile(item);
+
+        if (profile) return profile;
+      }
+
+      return null;
     }
 
-    if (value && typeof value === "object") {
-      return value;
-    }
-
-    return null;
+    return toUserProfile(value);
   };
 
   useEffect(() => {
@@ -108,7 +107,7 @@ export default function PropertyDetailsScreen({ route, navigation }: any) {
           const ownerSnap = await getDoc(doc(db, "sharedUsers", landlordID));
           if (ownerSnap.exists()) {
             sharedOwner = {
-              ...ownerSnap.data(),
+              ...toUserProfile(ownerSnap.data()),
               ...sharedOwner,
             };
           }

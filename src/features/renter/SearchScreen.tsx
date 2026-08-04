@@ -1,7 +1,15 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { View, TextInput, FlatList, StyleSheet } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query as firestoreQuery, where } from "firebase/firestore";
 import { auth, db } from "../../config/firebase";
 import ListingCard from "./components/ListingCard";
 import FilterBar from "./components/FilterBar";
@@ -13,14 +21,18 @@ import {
   normalizeListingRecord,
   normalizeRenterPreferences,
 } from "../shared/listingSchema";
+import { Listing, toListing } from "../shared/types";
 
 const TAB_OVERLAP = 90;
 
 export default function SearchScreen({ navigation }: any) {
-  const [listings, setListings] = useState<any[]>([]);
+  const [listings, setListings] = useState<Listing[]>([]);
   const [prefs, setPrefs] = useState<any>(null);
   const [query, setQuery] = useState("");
   const [userLocation, setUserLocation] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const [filters, setFilters] = useState<Filters>({
     bedrooms: null,
@@ -33,11 +45,33 @@ export default function SearchScreen({ navigation }: any) {
   // LOAD LISTINGS
   useEffect(() => {
     const load = async () => {
-      const snap = await getDocs(collection(db, "listings"));
-      setListings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      try {
+        setLoading(true);
+        setLoadError(null);
+
+        const snap = await getDocs(
+          firestoreQuery(
+            collection(db, "listings"),
+            where("status", "==", "Active")
+          )
+        );
+
+        setListings(
+          snap.docs.flatMap((document) => {
+            const listing = toListing(document.id, document.data());
+            return listing ? [listing] : [];
+          })
+        );
+      } catch {
+        setListings([]);
+        setLoadError("Could not load listings. Check your connection and try again.");
+      } finally {
+        setLoading(false);
+      }
     };
+
     load();
-  }, []);
+  }, [reloadToken]);
 
   // LOAD PREFS 
   useEffect(() => {
@@ -163,15 +197,43 @@ export default function SearchScreen({ navigation }: any) {
 
       <FilterBar filters={filters} setFilters={setFilters} />
 
-      <FlatList
-        data={results}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <ListingCard item={item} navigation={navigation} />
-        )}
-        contentContainerStyle={{ paddingBottom: TAB_OVERLAP }}
-        showsVerticalScrollIndicator={false}
-      />
+      {loading ? (
+        <View style={styles.centerState}>
+          <ActivityIndicator size="large" color="#0D74E7" />
+          <Text style={styles.stateText}>Loading listings...</Text>
+        </View>
+      ) : loadError ? (
+        <View style={styles.centerState}>
+          <Text style={styles.stateText}>{loadError}</Text>
+          <Pressable
+            style={styles.retryButton}
+            onPress={() => setReloadToken((current) => current + 1)}
+          >
+            <Text style={styles.retryText}>Try again</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <FlatList
+          data={results}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <ListingCard item={item} navigation={navigation} />
+          )}
+          contentContainerStyle={[
+            styles.listContent,
+            results.length === 0 && styles.emptyListContent,
+          ]}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>No matching listings</Text>
+              <Text style={styles.stateText}>
+                Try changing your search or filters.
+              </Text>
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -193,5 +255,51 @@ const styles = StyleSheet.create({
 
   searchInput: {
     fontSize: 14
+  },
+
+  listContent: {
+    paddingBottom: TAB_OVERLAP,
+  },
+
+  emptyListContent: {
+    flexGrow: 1,
+  },
+
+  centerState: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    padding: 24,
+  },
+
+  emptyState: {
+    alignItems: "center",
+    padding: 24,
+  },
+
+  emptyTitle: {
+    color: "#111827",
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+
+  stateText: {
+    color: "#6B7280",
+    lineHeight: 20,
+    textAlign: "center",
+  },
+
+  retryButton: {
+    backgroundColor: "#0D74E7",
+    borderRadius: 12,
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+
+  retryText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
 });

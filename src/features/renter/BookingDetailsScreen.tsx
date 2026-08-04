@@ -14,11 +14,12 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "../../config/firebase";
 import { colors } from "../../styles/globalStyles";
 import { formatDateTime } from "../chat/chatHelpers";
+import { Booking, toBooking } from "../shared/types";
 
 export default function BookingDetailsScreen({ route }: any) {
     const bookingId = route?.params?.id || route?.params?.bookingId;
 
-    const [booking, setBooking] = useState<any>(null);
+    const [booking, setBooking] = useState<Booking | null>(null);
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState(false);
 
@@ -35,7 +36,7 @@ export default function BookingDetailsScreen({ route }: any) {
                 const snap = await getDoc(doc(db, "bookings", bookingId));
 
                 if (snap.exists()) {
-                    setBooking({ id: snap.id, ...snap.data() });
+                    setBooking(toBooking(snap.id, snap.data()));
                 } else {
                     setBooking(null);
                 }
@@ -75,10 +76,9 @@ export default function BookingDetailsScreen({ route }: any) {
                                 updatedAt: new Date(),
                             });
 
-                            setBooking((prev: any) => ({
-                                ...prev,
-                                status: "cancelled",
-                            }));
+                            setBooking((prev) =>
+                                prev ? { ...prev, status: "cancelled" } : prev
+                            );
                         } catch (e) {
                             console.log("Withdraw error:", e);
                         } finally {

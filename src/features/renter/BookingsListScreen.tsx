@@ -11,11 +11,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../../config/firebase";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { Booking, toBooking } from "../shared/types";
 import { colors } from "../../styles/globalStyles";
 import { formatDateTime, toDate } from "../chat/chatHelpers";
 
 export default function BookingsListScreen({ navigation }: any) {
-  const [bookings, setBookings] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -35,8 +36,11 @@ export default function BookingsListScreen({ navigation }: any) {
       bookingsQuery,
       (snap) => {
         const data = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a: any, b: any) => {
+          .flatMap((document) => {
+            const booking = toBooking(document.id, document.data());
+            return booking ? [booking] : [];
+          })
+          .sort((a, b) => {
             const aTime =
               toDate(a.scheduledAt)?.getTime() ||
               toDate(a.createdAt)?.getTime() ||

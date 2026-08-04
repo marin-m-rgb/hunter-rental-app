@@ -23,15 +23,16 @@ import {
 import { auth, db } from "../../config/firebase";
 import { buttons, colors } from "../../styles/globalStyles";
 import { formatDateTime, getCounterpartyName } from "./chatHelpers";
+import { ChatMessage, Conversation, toChatMessage, toConversation } from "../shared/types";
 
 export default function ConversationScreen({ navigation, route }: any) {
   const conversationId = route?.params?.conversationId;
-  const [conversation, setConversation] = useState<any>(null);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const listRef = useRef<FlatList<any>>(null);
+  const listRef = useRef<FlatList<ChatMessage>>(null);
   const user = auth.currentUser;
 
   useEffect(() => {
@@ -49,7 +50,7 @@ export default function ConversationScreen({ navigation, route }: any) {
     const unsubscribeConversation = onSnapshot(
       conversationRef,
       (snap) => {
-        setConversation(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+        setConversation(snap.exists() ? toConversation(snap.id, snap.data()) : null);
         setLoading(false);
       },
       () => setLoading(false)
@@ -57,10 +58,10 @@ export default function ConversationScreen({ navigation, route }: any) {
 
     const unsubscribeMessages = onSnapshot(messagesQuery, (snap) => {
       setMessages(
-        snap.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data(),
-        }))
+        snap.docs.flatMap((docSnap) => {
+          const message = toChatMessage(docSnap.id, docSnap.data());
+          return message ? [message] : [];
+        })
       );
     });
 

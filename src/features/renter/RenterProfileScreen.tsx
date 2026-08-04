@@ -72,7 +72,11 @@ export default function RenterProfileScreen({ navigation }: any) {
 
     const batch = writeBatch(db);
     batch.set(doc(db, "users", user.uid), userPayload, { merge: true });
-    batch.set(doc(db, "sharedUsers", user.uid), sharedPayload, { merge: true });
+
+    if (Object.keys(sharedPayload).length > 0) {
+      batch.set(doc(db, "sharedUsers", user.uid), sharedPayload, { merge: true });
+    }
+
     await batch.commit();
   };
 
@@ -162,7 +166,7 @@ export default function RenterProfileScreen({ navigation }: any) {
 
     await updateSharedProfile(
       { phoneNumber: cleanPhoneNumber },
-      { phoneNumber: cleanPhoneNumber }
+      {}
     );
   };
 
@@ -174,7 +178,6 @@ export default function RenterProfileScreen({ navigation }: any) {
         style: "destructive",
         onPress: async () => {
           await signOut(auth);
-          navigation.reset({ index: 0, routes: [{ name: "Login" }] });
         },
       },
     ]);

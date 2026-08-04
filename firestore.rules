@@ -2,137 +2,294 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
 
-    // USERS
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function hasRole(role) {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.role == role;
+    }
+
+    function isListingLandlord(listingId, landlordId) {
+      return exists(/databases/$(database)/documents/listings/$(listingId))
+        && get(/databases/$(database)/documents/listings/$(listingId))
+          .data.landlordID == landlordId;
+    }
+
+    function isConversationParticipant() {
+      return signedIn()
+        && request.auth.uid in resource.data.participantIDs;
+    }
+
+    function isConversationLandlord(conversationId) {
+      return exists(/databases/$(database)/documents/conversations/$(conversationId))
+        && get(/databases/$(database)/documents/conversations/$(conversationId))
+          .data.landlordID == request.auth.uid;
+    }
+
+    function isAllowedBookingStatus(status) {
+      return status == "pending"
+        || status == "accepted"
+        || status == "rejected"
+        || status == "completed"
+        || status == "cancelled";
+    }
+
+    // Private profile: readable and writable only by its owner.
     match /users/{userId} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == userId;
-    }
+      allow get: if isSelf(userId);
+      allow list: if false;
 
-    // SHARED USERS
-    match /sharedUsers/{userId} {
-      allow read: if request.auth != null;
+      allow create: if isSelf(userId)
+        && request.resource.data.keys().hasAll([
+          "name", "firstName", "lastName", "email", "phoneNumber",
+          "avatarUrl", "role", "createdAt"
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.firstName is string
+        && request.resource.data.lastName is string
+        && request.resource.data.email is string
+        && request.resource.data.phoneNumber is string
+        && request.resource.data.avatarUrl is string
+        && request.resource.data.createdAt is string
+        && (request.resource.data.role == "renter"
+          || request.resource.data.role == "landlord");
 
-      allow create, update, delete: if request.auth != null
-        && request.auth.uid == userId;
-    }
-
-    // LISTINGS
-    match /listings/{listingId} {
-      allow create: if request.auth != null
-        && request.resource.data.landlordID == request.auth.uid
-        && request.resource.data.renterID == ""
-        && request.resource.data.status == "Active";
-
-      allow read: if request.auth != null;
-
-      allow update, delete: if request.auth != null
-        && resource.data.landlordID == request.auth.uid;
-    }
-
-    // RENTER PREFS
-    match /renterPreferences/{userId} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == userId;
-    }
-
-    // SAVED LISTINGS
-    match /savedListings/{docId} {
-      allow read: if request.auth != null
-        && resource.data.userId == request.auth.uid;
-
-      allow write: if request.auth != null
-        && request.resource.data.userId == request.auth.uid;
-    }
-
-    // APPLICATIONS
-    match /applications/{docId} {
-      allow read: if request.auth != null
-        && resource.data.userId == request.auth.uid;
-
-      allow write: if request.auth != null
-        && request.resource.data.userId == request.auth.uid;
-    }
-
-    // CONVERSATIONS
-    match /conversations/{conversationId} {
-      allow read: if request.auth != null
-        && request.auth.uid in resource.data.participantIDs;
-
-      allow create: if request.auth != null
-        && request.auth.uid in request.resource.data.participantIDs
-        && request.resource.data.participantIDs.size() == 2
-        && request.resource.data.renterID in request.resource.data.participantIDs
-        && request.resource.data.landlordID in request.resource.data.participantIDs;
-
-      allow update: if request.auth != null
-        && request.auth.uid in resource.data.participantIDs;
+      // Role, email and creation date cannot be changed from the client.
+      allow update: if isSelf(userId)
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "name", "firstName", "lastName", "phoneNumber", "avatarUrl",
+          "renterPreferences", "hasCompletedPreferences", "listingIDs",
+          "favoritesID"
+        ]);
 
       allow delete: if false;
     }
 
-    // MESSAGES
+    // Only non-sensitive data belongs here. Email and phone remain in /users.
+    match /sharedUsers/{userId} {
+      allow get: if signedIn();
+      allow list: if false;
+
+      allow create, update: if isSelf(userId)
+        && request.resource.data.keys().hasOnly([
+          "firstName", "lastName", "avatarUrl"
+        ])
+        && request.resource.data.firstName is string
+        && request.resource.data.lastName is string
+        && request.resource.data.avatarUrl is string;
+
+      allow delete: if false;
+    }
+
+    match /listings/{listingId} {
+      allow read: if signedIn();
+
+      allow create: if hasRole("landlord")
+        && request.resource.data.landlordID == request.auth.uid
+        && request.resource.data.renterID == ""
+        && request.resource.data.status == "Active"
+        && request.resource.data.name is string
+        && request.resource.data.address is string
+        && request.resource.data.city is string
+        && request.resource.data.description is string
+        && request.resource.data.images is list
+        && request.resource.data.images.size() > 0
+        && request.resource.data.images.size() <= 3
+        && request.resource.data.lat is number
+        && request.resource.data.lng is number;
+
+      allow update: if hasRole("landlord")
+        && resource.data.landlordID == request.auth.uid
+        && request.resource.data.landlordID == resource.data.landlordID
+        && request.resource.data.renterID == resource.data.renterID
+        && (request.resource.data.status == "Active"
+          || request.resource.data.status == "Rented"
+          || request.resource.data.status == "Inactive");
+
+      allow delete: if hasRole("landlord")
+        && resource.data.landlordID == request.auth.uid;
+    }
+
+    match /renterPreferences/{userId} {
+      allow read, write: if isSelf(userId);
+    }
+
+    match /savedListings/{documentId} {
+      allow read: if signedIn()
+        && resource.data.userId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if signedIn()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    match /applications/{documentId} {
+      allow read: if signedIn()
+        && resource.data.userId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if signedIn()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    match /conversations/{conversationId} {
+      // Needed by the client to determine whether a deterministic ID exists.
+      allow get: if signedIn()
+        && (!exists(/databases/$(database)/documents/conversations/$(conversationId))
+          || request.auth.uid in resource.data.participantIDs);
+      allow list: if isConversationParticipant();
+
+      allow create: if hasRole("renter")
+        && request.resource.data.keys().hasOnly([
+          "renterID", "landlordID", "participantIDs", "listingID",
+          "listingName", "listingAddress", "listingImage", "renterName",
+          "landlordName", "lastMessageText", "lastMessageSenderID",
+          "lastMessageAt", "createdAt", "updatedAt"
+        ])
+        && request.resource.data.renterID == request.auth.uid
+        && request.resource.data.landlordID != request.auth.uid
+        && request.resource.data.participantIDs.size() == 2
+        && request.resource.data.participantIDs.hasAll([
+          request.resource.data.renterID,
+          request.resource.data.landlordID
+        ])
+        && request.resource.data.listingID is string
+        && isListingLandlord(
+          request.resource.data.listingID,
+          request.resource.data.landlordID
+        )
+        && get(/databases/$(database)/documents/listings/$(request.resource.data.listingID))
+          .data.status == "Active"
+        && request.resource.data.lastMessageText == ""
+        && request.resource.data.lastMessageSenderID == ""
+        && request.resource.data.lastMessageAt is timestamp
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+
+      // Participant and listing metadata are immutable after creation.
+      allow update: if isConversationParticipant()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "lastMessageText", "lastMessageSenderID", "lastMessageAt", "updatedAt"
+        ])
+        && request.resource.data.lastMessageText is string
+        && request.resource.data.lastMessageText.size() <= 2000
+        && request.resource.data.lastMessageSenderID == request.auth.uid
+        && request.resource.data.lastMessageAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+
+      allow delete: if false;
+    }
+
     match /conversations/{conversationId}/messages/{messageId} {
-      allow read: if request.auth != null
+      allow read: if signedIn()
+        && exists(/databases/$(database)/documents/conversations/$(conversationId))
         && request.auth.uid in get(
           /databases/$(database)/documents/conversations/$(conversationId)
         ).data.participantIDs;
 
-      allow create: if request.auth != null
+      allow create: if signedIn()
+        && exists(/databases/$(database)/documents/conversations/$(conversationId))
         && request.auth.uid in get(
           /databases/$(database)/documents/conversations/$(conversationId)
         ).data.participantIDs
-        && request.resource.data.senderID == request.auth.uid;
+        && request.resource.data.keys().hasOnly(["senderID", "text", "createdAt"])
+        && request.resource.data.senderID == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 2000
+        && request.resource.data.createdAt is timestamp;
 
       allow update, delete: if false;
     }
 
-    // BOOKINGS
     match /bookings/{bookingId} {
-      allow create: if request.auth != null
+      allow read: if signedIn()
+        && (resource.data.renterID == request.auth.uid
+          || resource.data.landlordID == request.auth.uid);
+
+      allow create: if hasRole("landlord")
+        && request.resource.data.keys().hasOnly([
+          "landlordID", "renterID", "conversationID", "listingID", "listingD",
+          "listingTitle", "listingName", "listingAddress", "listingImage",
+          "renterName", "landlordName", "scheduledAt", "status", "createdBy",
+          "createdAt"
+        ])
         && request.resource.data.landlordID == request.auth.uid
         && request.resource.data.createdBy == request.auth.uid
-        && request.resource.data.status == "pending";
+        && request.resource.data.renterID is string
+        && request.resource.data.renterID != request.auth.uid
+        && request.resource.data.conversationID is string
+        && request.resource.data.listingID is string
+        && request.resource.data.scheduledAt is timestamp
+        && request.resource.data.scheduledAt > request.time
+        && request.resource.data.status == "pending"
+        && isConversationLandlord(request.resource.data.conversationID)
+        && get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationID))
+          .data.renterID == request.resource.data.renterID
+        && get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationID))
+          .data.listingID == request.resource.data.listingID
+        && isListingLandlord(request.resource.data.listingID, request.auth.uid);
 
-      allow read: if request.auth != null
-        && (
-          resource.data.renterID == request.auth.uid ||
-          resource.data.landlordID == request.auth.uid
-        );
-
-      allow update: if request.auth != null
+      allow update: if signedIn()
+        && request.resource.data.renterID == resource.data.renterID
+        && request.resource.data.landlordID == resource.data.landlordID
+        && request.resource.data.conversationID == resource.data.conversationID
+        && request.resource.data.listingID == resource.data.listingID
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "status", "updatedAt"
+        ])
+        && isAllowedBookingStatus(request.resource.data.status)
         && (
           (
-            resource.data.landlordID == request.auth.uid
-            && request.resource.data.renterID == resource.data.renterID
-            && request.resource.data.landlordID == resource.data.landlordID
-          ) ||
-          (
-            resource.data.renterID == request.auth.uid
+            request.auth.uid == resource.data.landlordID
+            && (
+              (resource.data.status == "pending"
+                && (request.resource.data.status == "accepted"
+                  || request.resource.data.status == "rejected"))
+              || (resource.data.status == "accepted"
+                && request.resource.data.status == "completed")
+            )
+          )
+          || (
+            request.auth.uid == resource.data.renterID
             && resource.data.status == "pending"
-            && request.resource.data.renterID == resource.data.renterID
-            && request.resource.data.landlordID == resource.data.landlordID
             && request.resource.data.status == "cancelled"
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              "status",
-              "updatedAt"
-            ])
           )
         );
 
       allow delete: if false;
     }
 
-    // NOTIFICATIONS
-    match /notifications/{docId} {
-      allow read: if request.auth != null
+    match /notifications/{documentId} {
+      allow read: if signedIn()
         && resource.data.userId == request.auth.uid;
-
-      allow write: if request.auth != null
+      allow create: if signedIn()
         && request.resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if signedIn()
+        && resource.data.userId == request.auth.uid;
     }
 
-    // DEFAULT DENY
     match /{document=**} {
       allow read, write: if false;
     }
