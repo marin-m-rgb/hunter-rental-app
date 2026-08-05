@@ -10,11 +10,12 @@ import {
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { addDoc, collection, doc, getDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../config/firebase";
 import { buttons, colors } from "../../styles/globalStyles";
 import { formatDateTime } from "../chat/chatHelpers";
 import { Conversation, toConversation } from "../shared/types";
+import { addBookingNotification, createBookingBatch } from "../shared/bookingNotifications";
 
 export default function CreateBookingScreen({ navigation, route }: any) {
   const conversationId = route?.params?.conversationId;
@@ -88,7 +89,9 @@ export default function CreateBookingScreen({ navigation, route }: any) {
     try {
       setSaving(true);
 
-      await addDoc(collection(db, "bookings"), {
+      const bookingRef = doc(collection(db, "bookings"));
+      const batch = createBookingBatch();
+      batch.set(bookingRef, {
         landlordID: conversation.landlordID,
         renterID: conversation.renterID,
         conversationID: conversation.id,
@@ -105,6 +108,14 @@ export default function CreateBookingScreen({ navigation, route }: any) {
         createdBy: user.uid,
         createdAt: serverTimestamp(),
       });
+      addBookingNotification(batch, {
+        recipientId: conversation.renterID,
+        bookingId: bookingRef.id,
+        listingId: conversation.listingID,
+        title: conversation.listingName || "Property",
+        status: "pending",
+      });
+      await batch.commit();
 
       navigation.navigate("LandlordTabs", {
         screen: "Bookings",

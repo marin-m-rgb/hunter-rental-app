@@ -9,11 +9,12 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, serverTimestamp, where } from "firebase/firestore";
 import { auth, db } from "../../config/firebase";
 import { colors } from "../../styles/globalStyles";
 import { formatDateTime, toDate } from "../chat/chatHelpers";
 import { Booking, BookingStatus, toBooking } from "../shared/types";
+import { addBookingNotification, createBookingBatch } from "../shared/bookingNotifications";
 
 const getAvailableBookingStatuses = (currentStatus: BookingStatus): BookingStatus[] => {
   if (currentStatus === "pending") return ["accepted", "rejected"];
@@ -86,9 +87,19 @@ export default function BookingScreen() {
     try {
       setUpdating(true);
 
-      await updateDoc(doc(db, "bookings", selectedBooking.id), {
+      const batch = createBookingBatch();
+      batch.update(doc(db, "bookings", selectedBooking.id), {
+        status: nextStatus,
+        updatedAt: serverTimestamp(),
+      });
+      addBookingNotification(batch, {
+        recipientId: selectedBooking.renterID,
+        bookingId: selectedBooking.id,
+        listingId: selectedBooking.listingID,
+        title: selectedBooking.listingTitle || selectedBooking.listingName || "Property",
         status: nextStatus,
       });
+      await batch.commit();
     } finally {
       setUpdating(false);
     }

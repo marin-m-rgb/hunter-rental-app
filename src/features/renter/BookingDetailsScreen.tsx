@@ -10,11 +10,12 @@ import {
     Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../config/firebase";
 import { colors } from "../../styles/globalStyles";
 import { formatDateTime } from "../chat/chatHelpers";
 import { Booking, toBooking } from "../shared/types";
+import { addBookingNotification, createBookingBatch } from "../shared/bookingNotifications";
 
 export default function BookingDetailsScreen({ route }: any) {
     const bookingId = route?.params?.id || route?.params?.bookingId;
@@ -71,10 +72,20 @@ export default function BookingDetailsScreen({ route }: any) {
                         try {
                             setUpdating(true);
 
-                            await updateDoc(doc(db, "bookings", bookingId), {
+                            if (!booking) return;
+                            const batch = createBookingBatch();
+                            batch.update(doc(db, "bookings", bookingId), {
                                 status: "cancelled",
-                                updatedAt: new Date(),
+                                updatedAt: serverTimestamp(),
                             });
+                            addBookingNotification(batch, {
+                                recipientId: booking.landlordID,
+                                bookingId,
+                                listingId: booking.listingID,
+                                title: booking.listingTitle || booking.listingName || "Property",
+                                status: "cancelled",
+                            });
+                            await batch.commit();
 
                             setBooking((prev) =>
                                 prev ? { ...prev, status: "cancelled" } : prev

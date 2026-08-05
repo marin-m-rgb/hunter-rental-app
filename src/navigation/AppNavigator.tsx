@@ -178,6 +178,7 @@ export default function AppNavigator() {
       <Stack.Screen name="ConversationsListScreen" component={ConversationsListScreen} />
       <Stack.Screen name="ConversationScreen" component={ConversationScreen} />
       <Stack.Screen name="CreateBookingScreen" component={CreateBookingScreen} />
+      <Stack.Screen name="BookingDetailsScreen" component={BookingDetailsScreen} />
     </Stack.Navigator>
   );
 }

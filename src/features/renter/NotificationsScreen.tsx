@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -9,72 +9,56 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Swipeable } from "react-native-gesture-handler";
-import { useFocusEffect } from "@react-navigation/native";
 import { auth, db } from "../../config/firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { colors } from "../../styles/globalStyles";
 import { formatDateTime, toDate } from "../chat/chatHelpers";
 
 export default function NotificationsScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [dismissed, setDismissed] = useState<string[]>([]);
 
   const user = auth.currentUser;
 
-  const load = useCallback(async () => {
-    if (!user) return;
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
-    setLoading(true);
+    const notificationsQuery = query(
+      collection(db, "notifications"),
+      where("userId", "==", user.uid)
+    );
 
-    try {
-      const q = query(
-        collection(db, "bookings"),
-        where("renterID", "==", user.uid)
-      );
-
-      const snap = await getDocs(q);
-
-      const data = snap.docs
+    const unsubscribe = onSnapshot(
+      notificationsQuery,
+      (snap) => {
+        const data = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .sort((a: any, b: any) => {
-          const aTime =
-            toDate(a.updatedAt)?.getTime() ||
-            toDate(a.createdAt)?.getTime() ||
-            toDate(a.scheduledAt)?.getTime() ||
-            0;
-
-          const bTime =
-            toDate(b.updatedAt)?.getTime() ||
-            toDate(b.createdAt)?.getTime() ||
-            toDate(b.scheduledAt)?.getTime() ||
-            0;
+          const aTime = toDate(a.createdAt)?.getTime() || 0;
+          const bTime = toDate(b.createdAt)?.getTime() || 0;
 
           return bTime - aTime;
         });
 
-      setNotifications(data);
-    } catch (e) {
-      console.log("Notifications error:", e);
-      setNotifications([]);
-    } finally {
-      setLoading(false);
-    }
+        setNotifications(data);
+        setLoading(false);
+      },
+      () => setLoading(false)
+    );
+
+    return unsubscribe;
   }, [user]);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load])
-  );
-
-  const dismiss = (id: string) => {
-    setDismissed((prev) => [...prev, id]);
+  const dismiss = async (id: string) => {
+    await updateDoc(doc(db, "notifications", id), {
+      dismissedAt: serverTimestamp(),
+    });
   };
 
-  const visible = notifications.filter(
-    (n) => !dismissed.includes(n.id)
-  );
+  const visible = notifications.filter((notification) => !notification.dismissedAt);
 
   const getMessage = (status: string) => {
     switch (status) {
@@ -142,15 +126,15 @@ export default function NotificationsScreen({ navigation }: any) {
                 </View>
 
                 <Text style={styles.message}>
-                  {getMessage(item.status)}
+                  {item.body || getMessage(item.status)}
                 </Text>
 
                 <Text style={styles.meta}>
-                  {item.listingAddress || "Address unavailable"}
+                  Booking update
                 </Text>
 
                 <Text style={styles.time}>
-                  {formatDateTime(item.scheduledAt)}
+                  {formatDateTime(item.createdAt)}
                 </Text>
               </Pressable>
             </Swipeable>

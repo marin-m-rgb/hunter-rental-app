@@ -6,6 +6,7 @@ import { colors } from "../styles/globalStyles";
 import LandlordDashboardScreen from "../features/landlord/LandlordDashboardScreen";
 import BookingScreen from "../features/landlord/BookingScreen";
 import ConversationsListScreen from "../features/chat/ConversationsListScreen";
+import NotificationsScreen from "../features/renter/NotificationsScreen";
 
 const Tab = createBottomTabNavigator();
 
@@ -56,6 +57,10 @@ export default function LandlordTabs() {
               iconName = "calendar-outline";
               break;
 
+            case "Notifications":
+              iconName = "notifications-outline";
+              break;
+
             default:
               iconName = "ellipse-outline";
           }
@@ -67,6 +72,7 @@ export default function LandlordTabs() {
       <Tab.Screen name="Home" component={LandlordDashboardScreen} />
       <Tab.Screen name="Chats" component={ConversationsListScreen} />
       <Tab.Screen name="Bookings" component={BookingScreen} />
+      <Tab.Screen name="Notifications" component={NotificationsScreen} />
     </Tab.Navigator>
   );
 }
